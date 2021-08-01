@@ -48,7 +48,7 @@ nome = 'Suicide Burn'
 conn = krpc.connect(nome)
 ksp = conn.space_center
 vessel = ksp.active_vessel
-engine = ksp.Engine
+engine = vessel.parts.engines
 body = vessel.orbit.body
 flight = vessel.flight(body.reference_frame)
 controle = vessel.control
@@ -63,6 +63,7 @@ massa = conn.add_stream(getattr, vessel, 'mass')
 gravidade = conn.add_stream(getattr, body, 'surface_gravity')
 velocidade = conn.add_stream(getattr, flight, 'speed')
 situacao = conn.add_stream(getattr, vessel, 'situation')
+
 # time
 UT = conn.add_stream(getattr, ksp, 'ut')
 pouso = False
@@ -73,6 +74,8 @@ distanciaDaQueima = 0
 distanciaPouso = specialVariable
 TWRMax = 0
 landingGearAlt = 500
+novaAcel = 0
+engineOrFuel = True
 
 # Pygame assets
 icon = pygame.image.load(os.path.join("Assets", "321.png")).convert_alpha()
@@ -100,7 +103,7 @@ def atualizarvariaveis():
 class SuicideBurn:
     @staticmethod
     def suicide():
-        global pouso
+        global pouso, novaAcel, engineOrFuel
         global distanciaDaQueima
         global TWRMax
         global specialVariable
@@ -151,11 +154,11 @@ class SuicideBurn:
 
             # PID.saidaPID(UT(), 0.025)
 
-            if TWRMax == 0:
-                TWRMax = 0.0000001
-
-
-            novaAcel = (1 / TWRMax + correcao)  # <----------------------------------------- acceleration calculations
+            try:
+                novaAcel = (1 / TWRMax + correcao)  # <---------------------------------- acceleration calculations
+                engineOrFuel = True
+            except ZeroDivisionError:
+                engineOrFuel = False
 
             # if landed cut power
             if (situacao() == pousado or situacao() == pousado_agua) and int(horizontal()) <= 1:
@@ -173,10 +176,7 @@ class SuicideBurn:
 
             tela.fill((255, 255, 255))
 
-            if nomeCorpoCeleste == "Mun":
-                tela.blit(munImg, (0, 0))
-            elif nomeCorpoCeleste == "Kerbin":
-                tela.blit(kerbinImg, (0, 0))
+            tela.blit(munImg, (0, 0))
 
             TextX = 0
             TextY = 0
@@ -206,10 +206,14 @@ class SuicideBurn:
 
             gearTxt = font.render(gear, False, gearColor)
 
-            if TWRMax == 0.0000001:
+            if engineOrFuel is False and pouso is False:
                 debug = font2.render('NO ENGINES ACTIVE', False, (255, 55, 55))
                 tela.blit(debug, (0, 250))
                 print('NO ENGINES ACTIVE')
+
+            for eachEngine in engine:
+                if eachEngine.available_thrust == 0:
+                    print(eachEngine.available_thrust)
 
             tela.blit(fogueteImg, (420, (((surAlt() // 3) * -1) + telaHeight) - 303))
             tela.blit(surAltTxt, (TextX + 50, TextYfollow))
